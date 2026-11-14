@@ -31,7 +31,10 @@ namespace TypeDater.View
             else
             {
                 var installed = AppState.Manifest.InstalledVersion ?? "unknown";
-                PromptText.Text = $"TypeDitor {AppState.LatestVersion} is available (installed version: {installed}). Do you want to update now? TypeDitor will restart after the update.";
+                PromptText.Text = AppState.VersionForced
+                    ? $"TypeDitor will be set to version {AppState.LatestVersion} (installed version: {installed}). Do you want to continue? TypeDitor will restart afterwards."
+                    : $"TypeDitor {AppState.LatestVersion} is available (installed version: {installed}). Do you want to update now? TypeDitor will restart after the update.";
+                UpdateSkipButton.IsVisible = !AppState.VersionForced;
                 ShowPanel(PromptPanel);
             }
         }
@@ -89,6 +92,11 @@ namespace TypeDater.View
             if (OperatingSystem.IsWindows() && !Program.IsAdministrator() && !CanWrite(AppState.ExeDirectory))
             {
                 var args = new List<string> { "--accepted", AppState.LatestVersion!.ToString() };
+                if (AppState.VersionForced)
+                {
+                    args.Add("--version");
+                    args.Add(AppState.LatestVersion!.ToString());
+                }
                 if (AppState.TypeDitorPid != null)
                 {
                     args.Add("--pid");

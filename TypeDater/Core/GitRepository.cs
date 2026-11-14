@@ -4,6 +4,7 @@ namespace TypeDater.Core
     public class GitRepository
     {
         public const string RepositoryUrl = "https://github.com/Udrian/typeditor.git";
+        public const string TyperRepositoryUrl = "https://github.com/Udrian/typer.git";
 
         private readonly ProcessRunner _runner;
 
@@ -32,7 +33,8 @@ namespace TypeDater.Core
             return latest;
         }
 
-        // Shallow clone of a tag including the TypeR submodule.
+        // Shallow clone of a tag, then the latest TypeR on top of the submodule folder:
+        // the tag pins TypeR at an old commit, but installs should always generate with the newest TypeR.
         public async Task<bool> CloneTag(string tag, string destination, Action<string>? onOutput = null)
         {
             var result = await _runner.Run("git", new[]
@@ -40,12 +42,19 @@ namespace TypeDater.Core
                 "clone",
                 "--depth", "1",
                 "--branch", tag,
-                "--recurse-submodules",
-                "--shallow-submodules",
                 RepositoryUrl,
                 destination
             }, onOutput: onOutput);
-            return result.Success;
+            if (!result.Success) return false;
+
+            var typer = await _runner.Run("git", new[]
+            {
+                "clone",
+                "--depth", "1",
+                TyperRepositoryUrl,
+                Path.Combine(destination, "typer")
+            }, onOutput: onOutput);
+            return typer.Success;
         }
     }
 }

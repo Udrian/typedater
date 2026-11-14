@@ -18,8 +18,20 @@ namespace TypeDater
 
             try
             {
-                ParseArguments(args, out var pid, out var acceptedVersion, out var elevated);
+                ParseArguments(args, out var pid, out var acceptedVersion, out var elevated, out var forcedVersion);
                 AppState.TypeDitorPid = pid;
+
+                Version? forced = null;
+                if (forcedVersion != null && !Version.TryParse(forcedVersion, out forced))
+                {
+                    logger.Log($"Invalid --version value '{forcedVersion}', expected e.g. 1.2.0");
+                    return 1;
+                }
+                if (forced != null)
+                {
+                    AppState.LatestVersion = forced;
+                    AppState.VersionForced = true;
+                }
 
                 if (File.Exists(Path.Combine(exeDirectory, AppState.TypeDitorExeName)))
                 {
@@ -50,8 +62,12 @@ namespace TypeDater
         {
             AppState.Manifest = Manifest.Load(AppState.ExeDirectory);
 
-            var repository = new GitRepository(new ProcessRunner(logger));
-            var latest = repository.GetLatestTag().GetAwaiter().GetResult();
+            var latest = AppState.LatestVersion;
+            if (latest == null)
+            {
+                var repository = new GitRepository(new ProcessRunner(logger));
+                latest = repository.GetLatestTag().GetAwaiter().GetResult();
+            }
             if (latest == null)
             {
                 logger.Log("Update check: could not determine the latest version, exiting silently");
@@ -63,6 +79,12 @@ namespace TypeDater
             {
                 // Elevated relaunch after the user already accepted the update.
                 AppState.UpdateAccepted = true;
+                return true;
+            }
+
+            if (AppState.VersionForced)
+            {
+                logger.Log($"Forced update to version {latest} (installed: {AppState.Manifest.InstalledVersion ?? "unknown"})");
                 return true;
             }
 
@@ -81,11 +103,12 @@ namespace TypeDater
             return true;
         }
 
-        private static void ParseArguments(string[] args, out int? pid, out string? acceptedVersion, out bool elevated)
+        private static void ParseArguments(string[] args, out int? pid, out string? acceptedVersion, out bool elevated, out string? forcedVersion)
         {
             pid = null;
             acceptedVersion = null;
             elevated = false;
+            forcedVersion = null;
             for (var i = 0; i < args.Length; i++)
             {
                 switch (args[i])
@@ -96,6 +119,9 @@ namespace TypeDater
                         break;
                     case "--accepted" when i + 1 < args.Length:
                         acceptedVersion = args[++i];
+                        break;
+                    case "--version" when i + 1 < args.Length:
+                        forcedVersion = args[++i];
                         break;
                     case "--elevated":
                         elevated = true;

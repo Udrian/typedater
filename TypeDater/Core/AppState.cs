@@ -14,6 +14,8 @@ namespace TypeDater.Core
         public static Logger Logger { get; set; } = null!;
         public static Manifest Manifest { get; set; } = new Manifest();
         public static Version? LatestVersion { get; set; }
+        // A specific version was requested with --version; bypasses up-to-date and skip checks.
+        public static bool VersionForced { get; set; }
         // Update already accepted (elevated relaunch); skip the prompt.
         public static bool UpdateAccepted { get; set; }
         // Process id of the running TypeDitor that launched us.
